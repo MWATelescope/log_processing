@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.jobs_history
     job_params json,
     error_code integer,
     error_text text COLLATE pg_catalog."default",
-    created timestamp without time zone DEFAULT now(),
+    created timestamp without time zone,
     started timestamp without time zone,
     completed timestamp without time zone,
     product json,

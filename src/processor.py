@@ -17,6 +17,7 @@ class LogProcessor():
         self.verbose = verbose
         self.dry_run = dry_run
         self.conn = self._setup_connection(dsn, connection)
+        self.ops = []
 
         for sig in [signal.SIGINT]:
             signal.signal(sig, self._signal_handler)
@@ -44,23 +45,36 @@ class LogProcessor():
             if connection is not None:
                 return connection
 
-            return connect(dsn, autocommit=True)
+            return connect(dsn, autocommit=False)
         except Exception as e:
             logger.error("Could not connect to database.")
             logger.error(e)
             sys.exit(1)
-        
 
-    def run_sql(self, sql: str, args: tuple = None):
+    
+    def run_current_ops(self):
         try:
-            with self.conn.cursor() as cur:
-                if args is not None:
-                    cur.execute(sql, args)
-                else:
-                    cur.execute(sql)
-            self.conn.commit()
+            with self.conn.transaction():
+                with self.conn.cursor() as cur:
+                    for (sql, args) in self.ops:
+                        if args is not None:
+                            cur.execute(sql, args)
+                        else:
+                            cur.execute(sql)
+            self.ops = []
         except Exception as e:
             raise e
+
+
+    def batch_run_sql(self, sql: str, args: tuple = None) -> None:
+        """
+        Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
+        """
+        self.ops.append((sql, args))
+
+        if len(self.ops) == 1000:
+            logger.info("Running batch of 1000.")
+            self.run_current_ops()
 
 
     def _process_line(self, line: str) -> None:
@@ -81,7 +95,7 @@ class LogProcessor():
             # For every rule in our dictionary
             for rule in self.rules.keys():
                 # Try and apply the rule to the current line
-                match = re.search(rule, line)
+                match = re.match(rule, line)
 
                 if match is not None:
                     no_handler = False
@@ -134,6 +148,9 @@ class LogProcessor():
                 # Only attempt to process files, will go one level deep.
                 if os.path.isfile(file_path):
                     self._process_file(file_path)
+
+                #After file parsing has finished, complete any remaining database operations
+                self.run_current_ops()
 
             self.handlers.on_finish(self)
         except Exception as e:

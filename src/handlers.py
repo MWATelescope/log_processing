@@ -25,10 +25,17 @@ def on_start(processor):
     sql = """
         TRUNCATE TABLE jobs_history;
     """
-    processor.run_sql(sql)
+    processor.batch_run_sql(sql)
 
     
 def on_finish(processor):
+    sql = """
+        UPDATE jobs_history
+        SET error_code = 1, error_text = "job_failed", completed = started
+        WHERE job_state = 1
+    """
+    processor.batch_run_sql(sql)
+
     logger.info("Finishing..")
 
 
@@ -51,7 +58,7 @@ def consumed_message(processor, line, match):
     """
 
     params = (job_id, job_type, user_id, json.dumps(job_params), JobState.PROCESSING.value, timestamp)
-    processor.run_sql(sql, params)
+    processor.batch_run_sql(sql, params)
 
 
 def cancel(processor, line, match):
@@ -69,7 +76,7 @@ def cancel(processor, line, match):
     """
 
     params = (JobState.CANCELLED.value, timestamp, job_id)
-    processor.run_sql(sql, params)
+    processor.batch_run_sql(sql, params)
 
 
 def complete(processor, line, match):
@@ -88,4 +95,4 @@ def complete(processor, line, match):
     """
 
     params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)
-    processor.run_sql(sql, params)
+    processor.batch_run_sql(sql, params)

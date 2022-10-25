@@ -133,4 +133,8 @@ dmypy.json
 
 *.cfg
 
+# macos
 .DS_STORE
+
+# other
+stats.py
