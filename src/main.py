@@ -4,10 +4,8 @@ import argparse
 
 from configparser import ConfigParser
 
-import handlers
-
 from processor import LogProcessor
-from repository import PostgresRepository, Repository
+from repository import PostgresRepository
 from rules import rules
 
 logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s')
@@ -107,7 +105,7 @@ def main() -> None:
     log_processor = LogProcessor(
         args.log_path,
         rules,
-        handlers,
+        'handlers',
         args.dry_run,
         repository
     )

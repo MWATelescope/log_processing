@@ -4,7 +4,7 @@ import logging
 import signal
 import re
 
-from psycopg import Connection, connect
+from importlib import import_module
 
 logger = logging.getLogger()
 
@@ -14,15 +14,15 @@ class LogProcessor():
         self,
         log_path: str, 
         rules: dict, 
-        handlers, 
+        handlers: str, 
         dry_run: bool, 
         repository
     ):
         self.log_path = log_path
         self.rules = rules
-        self.handlers = handlers
         self.dry_run = dry_run
         self.repository = repository
+        self.handlers = import_module(handlers)
 
         for sig in [signal.SIGINT]:
             signal.signal(sig, self._signal_handler)
