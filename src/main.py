@@ -1,13 +1,13 @@
 import sys
 import logging
 import argparse
-import cProfile
 
 from configparser import ConfigParser
 
 import handlers
 
 from processor import LogProcessor
+from repository import PostgresRepository, Repository
 from rules import rules
 
 logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s')
@@ -102,13 +102,14 @@ def main() -> None:
     else:
         logger.setLevel(logging.WARN)
 
+    repository = PostgresRepository(dsn=dsn)
+
     log_processor = LogProcessor(
         args.log_path,
         rules,
         handlers,
-        args.verbose,
         args.dry_run,
-        dsn=dsn
+        repository
     )
 
     log_processor.run()

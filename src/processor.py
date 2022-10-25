@@ -10,14 +10,19 @@ logger = logging.getLogger()
 
 
 class LogProcessor():
-    def __init__(self, log_path: str, rules: dict, handlers, verbose: bool, dry_run: bool, dsn: str = None, connection: Connection | None = None):
+    def __init__(
+        self,
+        log_path: str, 
+        rules: dict, 
+        handlers, 
+        dry_run: bool, 
+        repository
+    ):
         self.log_path = log_path
         self.rules = rules
         self.handlers = handlers
-        self.verbose = verbose
         self.dry_run = dry_run
-        self.conn = self._setup_connection(dsn, connection)
-        self.ops = []
+        self.repository = repository
 
         for sig in [signal.SIGINT]:
             signal.signal(sig, self._signal_handler)
@@ -33,48 +38,6 @@ class LogProcessor():
 
         logger.info(f"Interrupted! Received signal {sig}.")
         sys.exit(0)
-
-
-    def _setup_connection(self, dsn: str, connection: Connection) -> Connection:
-        """
-        Will return the provided connection if one exists (useful for testing). Otherwise will attempt to connect to the provided DSN.
-        """
-        try:
-            logger.info("Connecting to database.")
-
-            if connection is not None:
-                return connection
-
-            return connect(dsn, autocommit=False)
-        except Exception as e:
-            logger.error("Could not connect to database.")
-            logger.error(e)
-            sys.exit(1)
-
-    
-    def run_current_ops(self):
-        try:
-            with self.conn.transaction():
-                with self.conn.cursor() as cur:
-                    for (sql, args) in self.ops:
-                        if args is not None:
-                            cur.execute(sql, args)
-                        else:
-                            cur.execute(sql)
-            self.ops = []
-        except Exception as e:
-            raise e
-
-
-    def batch_run_sql(self, sql: str, args: tuple = None) -> None:
-        """
-        Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
-        """
-        self.ops.append((sql, args))
-
-        if len(self.ops) == 1000:
-            logger.info("Running batch of 1000.")
-            self.run_current_ops()
 
 
     def _process_line(self, line: str, ruleset: dict) -> None:
@@ -104,7 +67,7 @@ class LogProcessor():
                     no_handler = False
                     
                     handler = getattr(self.handlers, ruleset[rule])
-                    handler(self, line, match)
+                    handler(self.repository, line, match)
 
                     break
 
@@ -144,7 +107,7 @@ class LogProcessor():
         Method to go and process logs!
         """
         try:
-            self.handlers.on_start(self)
+            self.handlers.on_start(self.repository)
 
             # For each file in our log directory
             for file_name in os.listdir(self.log_path):
@@ -159,7 +122,7 @@ class LogProcessor():
                             self._process_file(file_path, self.rules[ruleset])
 
             # After we've finished processing, run the on_finish handler and execute any remaining operations.
-            self.handlers.on_finish(self)
-            self.run_current_ops()
+            self.handlers.on_finish(self.repository)
+            self.repository.run_current_ops()
         except Exception as e:
             logger.error(e)

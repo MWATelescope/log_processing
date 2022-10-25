@@ -11,8 +11,8 @@ rules = {
 }
 
 Where:
-file_regex is some regex to match the name of a file
-line_regex is some regex to match a line within the file
+file_regex is some regex to match the name of a file,
+line_regex is some regex to match a line within the file,
 handler is the name of a function in handlers.py which will be used to process the line.
 
 ## Handlers

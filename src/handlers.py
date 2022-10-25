@@ -16,11 +16,11 @@ class JobState(Enum):
     CANCELLED = 5
 
 
-def skip(processor, line, match) -> None:
+def skip(repository, line, match) -> None:
     return
 
 
-def on_start(processor) -> None:
+def on_start(repository) -> None:
     """
     Runs at the start of the processing routine. Clears out old data from previous runs.
     """
@@ -29,10 +29,10 @@ def on_start(processor) -> None:
     sql = """
         TRUNCATE TABLE jobs_history;
     """
-    processor.batch_run_sql(sql)
+    repository.batch_run_sql(sql)
 
     
-def on_finish(processor) -> None:
+def on_finish(repository) -> None:
     """
     Runs at the end of the processing routine. We're making the assumption that anything that wasn't completed or cancelled, failed for some reason.
     So go and update the database to set the error fields and completed time properly.
@@ -43,12 +43,12 @@ def on_finish(processor) -> None:
         SET error_code = 1, error_text = 'Job Failed', completed = started
         WHERE job_state = 1
     """
-    processor.batch_run_sql(sql)
+    repository.batch_run_sql(sql)
 
     logger.info("Finishing..")
 
 
-def consumed_message(processor, line, match):
+def consumed_message(repository, line, match):
     """
     Handler for "consumed message" log entries, which denote the creation of new jobs.
     """
@@ -70,10 +70,10 @@ def consumed_message(processor, line, match):
     """
 
     params = (job_id, job_type, user_id, json.dumps(job_params), JobState.PROCESSING.value, timestamp, timestamp)
-    processor.batch_run_sql(sql, params)
+    repository.batch_run_sql(sql, params)
 
 
-def cancel(processor, line, match):
+def cancel(repository, line, match):
     """
     Handler for "job cancelled" log entries, which denote that a job has been cancelled.
     """
@@ -91,10 +91,10 @@ def cancel(processor, line, match):
     """
 
     params = (JobState.CANCELLED.value, timestamp, job_id)
-    processor.batch_run_sql(sql, params)
+    repository.batch_run_sql(sql, params)
 
 
-def complete(processor, line, match):
+def complete(repository, line, match):
     """
     Handler for "visibility download completed" log entries, which denote that a job was processed successfully.
     """
@@ -112,4 +112,4 @@ def complete(processor, line, match):
     """
 
     params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)
-    processor.batch_run_sql(sql, params)
+    repository.batch_run_sql(sql, params)
