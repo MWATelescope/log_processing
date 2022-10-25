@@ -77,7 +77,7 @@ class LogProcessor():
             self.run_current_ops()
 
 
-    def _process_line(self, line: str) -> None:
+    def _process_line(self, line: str, ruleset: dict) -> None:
         """
         Method to process a single line of a log file.
 
@@ -85,22 +85,25 @@ class LogProcessor():
         ----------
         line: str
             A line from a log file
+        ruleset: dict
+            Dictionary which defines all of the rules needed to process the file where the key is regex to match a line, and the value is the name of the function used to process the line.
         """
         if self.dry_run:
+            logger.info(f"Processing line: {line}.")
             return
 
         try:
             no_handler = True
 
             # For every rule in our dictionary
-            for rule in self.rules.keys():
+            for rule in ruleset:
                 # Try and apply the rule to the current line
                 match = re.match(rule, line)
 
                 if match is not None:
                     no_handler = False
                     
-                    handler = getattr(self.handlers, self.rules[rule])
+                    handler = getattr(self.handlers, ruleset[rule])
                     handler(self, line, match)
 
                     break
@@ -117,7 +120,7 @@ class LogProcessor():
             raise
 
 
-    def _process_file(self, file_path: str) -> None:
+    def _process_file(self, file_path: str, ruleset: dict) -> None:
         """
         Method to process a single log file
 
@@ -125,11 +128,13 @@ class LogProcessor():
         ----------
         file_path: str
             Path to a log file to be processed
+        ruleset: dict
+            Dictionary which defines all of the rules needed to process the file where the key is regex to match a line, and the value is the name of the function used to process the line.
         """
         try:
             with open(file_path) as file:
                 for line in file:
-                    self._process_line(line)
+                    self._process_line(line, ruleset)
         except IOError:
             logger.info(f"Could not open file {file_path}")
 
@@ -147,11 +152,14 @@ class LogProcessor():
 
                 # Only attempt to process files, will go one level deep.
                 if os.path.isfile(file_path):
-                    self._process_file(file_path)
+                    # For each set of rules that we've defined
+                    for ruleset in self.rules.keys():
+                        # If the key of the ruleset is a regex match for the filename, use that ruleset to process the file.
+                        if re.search(ruleset, file_name):
+                            self._process_file(file_path, self.rules[ruleset])
 
-                #After file parsing has finished, complete any remaining database operations
-                self.run_current_ops()
-
+            # After we've finished processing, run the on_finish handler and execute any remaining operations.
             self.handlers.on_finish(self)
+            self.run_current_ops()
         except Exception as e:
             logger.error(e)
