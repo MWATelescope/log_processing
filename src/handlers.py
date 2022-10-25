@@ -29,7 +29,7 @@ def on_start(repository) -> None:
     sql = """
         TRUNCATE TABLE jobs_history;
     """
-    repository.queue_sql(sql, run_now=True)
+    repository.queue_op(sql, run_now=True)
 
     
 def on_finish(repository) -> None:
@@ -43,7 +43,7 @@ def on_finish(repository) -> None:
         SET error_code = 1, error_text = 'Job Failed', completed = started
         WHERE job_state = 1
     """
-    repository.queue_sql(sql, run_now=True)
+    repository.queue_op(sql, run_now=True)
 
     logger.info("Finishing..")
 
@@ -70,7 +70,7 @@ def consumed_message(repository, line, match):
     """
 
     params = (job_id, job_type, user_id, json.dumps(job_params), JobState.PROCESSING.value, timestamp, timestamp)
-    repository.queue_sql(sql, params)
+    repository.queue_op(sql, params)
 
 
 def cancel(repository, line, match):
@@ -91,7 +91,7 @@ def cancel(repository, line, match):
     """
 
     params = (JobState.CANCELLED.value, timestamp, job_id)
-    repository.queue_sql(sql, params)
+    repository.queue_op(sql, params)
 
 
 def complete(repository, line, match):
@@ -112,4 +112,4 @@ def complete(repository, line, match):
     """
 
     params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)
-    repository.queue_sql(sql, params)
+    repository.queue_op(sql, params)

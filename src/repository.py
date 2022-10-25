@@ -27,7 +27,7 @@ class Repository(ABC):
         """
         raise NotImplementedError
 
-    def queue_sql(self, sql: str, args: tuple = None, run_now: bool = False) -> None:
+    def queue_op(self, sql: str, args: tuple = None, run_now: bool = False) -> None:
         """
         Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
         """
@@ -67,7 +67,7 @@ class PostgresRepository(Repository):
         try:
             with self.conn.transaction():
                 with self.conn.cursor() as cur:
-                    for (sql, args) in self.ops:
+                    for (sql, args) in ops:
                         if args is not None:
                             cur.execute(sql, args)
                         else:
