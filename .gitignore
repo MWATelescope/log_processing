@@ -130,3 +130,7 @@ dmypy.json
 
 # pyenv
 .python-version
+
+*.cfg
+
+.DS_STORE
