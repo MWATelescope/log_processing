@@ -123,6 +123,5 @@ class LogProcessor():
 
             # After we've finished processing, run the on_finish handler and execute any remaining operations.
             self.handlers.on_finish(self.repository)
-            self.repository.run_current_ops()
         except Exception as e:
             logger.error(e)

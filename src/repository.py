@@ -8,10 +8,10 @@ logger = logging.getLogger()
 
 
 class Repository(ABC):
-    def __init__(self, dsn: str | None = None, connection=None, BATCH_SIZE=1000):
+    def __init__(self, dsn: str | None = None, connection=None, BATCH_SIZE: int=1000):
         self.conn = self._setup_connection(dsn, connection)
         self.BATCH_SIZE = BATCH_SIZE
-        self.ops = []
+        self.ops: list[tuple] = []
 
     @abstractmethod
     def _setup_connection(self, dsn: str | None = None, connection=None):
@@ -21,21 +21,23 @@ class Repository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def run_current_ops(self):
+    def run_ops(self, ops: list[tuple]):
         """
-        The programmer should implement a concrete method which gets all of the (sql, params) tuples from self.ops and runs them inside of a transaction.
+        The programmer should implement a concrete method which accepts a list of tuples (containing some SQL and paramters respectively) and run them inside of a transaction.
         """
-        raise 
+        raise NotImplementedError
 
-    def batch_run_sql(self, sql: str, args: tuple = None) -> None:
+    def queue_sql(self, sql: str, args: tuple = None, run_now: bool = False) -> None:
         """
         Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
         """
         self.ops.append((sql, args))
 
-        if len(self.ops) == self.BATCH_SIZE:
-            logger.info(f"Running batch of {self.BATCH_SIZE}.")
-            self.run_current_ops()
+        # By default, execute commands in batches of BATCH_SIZE, or override with run_now
+        if len(self.ops) == self.BATCH_SIZE or run_now:
+            logger.info(f"Running batch of {len(self.ops)}.")
+            self.run_ops(self.ops)
+            self.ops = []
 
 
 class PostgresRepository(Repository):
@@ -58,9 +60,9 @@ class PostgresRepository(Repository):
             logger.error(e)
             sys.exit(1)
 
-    def run_current_ops(self):
+    def run_ops(self, ops: list[tuple]):
         """
-        Opens a transaction, executes all of the (sql, params) tuples in self.ops inside of the transaction, and commits it.
+        Opens a transaction, executes all of the (sql, params) tuples in ops inside of the transaction, and commits it.
         """
         try:
             with self.conn.transaction():
@@ -70,6 +72,5 @@ class PostgresRepository(Repository):
                             cur.execute(sql, args)
                         else:
                             cur.execute(sql)
-            self.ops = []
         except Exception as e:
             raise e
