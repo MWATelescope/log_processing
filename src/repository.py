@@ -8,10 +8,11 @@ logger = logging.getLogger()
 
 
 class Repository(ABC):
-    def __init__(self, dsn: str | None = None, connection=None, BATCH_SIZE: int=1000):
+    def __init__(self, dsn: str | None = None, setup_script: str = None, connection=None, BATCH_SIZE: int=1000):
         self.conn = self._setup_connection(dsn, connection)
-        self.BATCH_SIZE = BATCH_SIZE
         self.ops: list[tuple] = []
+        self.BATCH_SIZE = BATCH_SIZE
+        self.setup_db(setup_script)
 
     @abstractmethod
     def _setup_connection(self, dsn: str | None = None, connection=None):
@@ -27,7 +28,20 @@ class Repository(ABC):
         """
         raise NotImplementedError
 
-    def queue_op(self, sql: str, args: tuple = None, run_now: bool = False) -> None:
+    def setup_db(self, setup_script: str):
+        """
+        Run a database setup script.
+        """
+        if setup_script is not None:
+            try:
+                logger.info("Running db setup script.")
+
+                with open(setup_script, 'r') as f:
+                    self.queue_op(f.read(), run_now=True)
+            except (IOError, FileNotFoundError) as e:
+                logger.error("Could not open the database setup script.")
+
+    def queue_op(self, sql: str, args: tuple | None = None, run_now: bool = False) -> None:
         """
         Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
         """
@@ -41,9 +55,6 @@ class Repository(ABC):
 
 
 class PostgresRepository(Repository):
-    def __init__(self, dsn: str | None, connection=None):
-        super().__init__(dsn, connection)
-
     def _setup_connection(self, dsn: str, connection: Connection) -> Connection:
         """
         Will return the provided connection if one exists (useful for testing). Otherwise will attempt to connect to the provided DSN.

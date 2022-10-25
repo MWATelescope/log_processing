@@ -82,6 +82,7 @@ def parse_arguments(args: list = sys.argv[1:]) -> argparse.Namespace:
     parser.add_argument("--cfg", default="../cfg/config.cfg")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--verbose", "-v", action="store_true", default=True)
+    parser.add_argument("--db_setup", default="../db/setup.sql")
 
     return parser.parse_args(args)
 
@@ -100,7 +101,7 @@ def main() -> None:
     else:
         logger.setLevel(logging.WARN)
 
-    repository = PostgresRepository(dsn=dsn)
+    repository = PostgresRepository(dsn=dsn, setup_script=args.db_setup)
 
     log_processor = LogProcessor(
         args.log_path,

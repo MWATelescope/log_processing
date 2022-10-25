@@ -21,15 +21,7 @@ def skip(repository, line, match) -> None:
 
 
 def on_start(repository) -> None:
-    """
-    Runs at the start of the processing routine. Clears out old data from previous runs.
-    """
-    logger.info("Cleaning up table.")
-
-    sql = """
-        TRUNCATE TABLE jobs_history;
-    """
-    repository.queue_op(sql, run_now=True)
+    logger.info("Starting processing.")
 
     
 def on_finish(repository) -> None:
