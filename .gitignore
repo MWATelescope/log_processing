@@ -130,3 +130,13 @@ dmypy.json
 
 # pyenv
 .python-version
+
+# macos
+.DS_STORE
+
+# other
+stats.py
+logs/*
+cfg/*
+*.cfg
+config.cfg
