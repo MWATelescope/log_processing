@@ -32,10 +32,11 @@ def on_finish(repository) -> None:
 
     sql = """
         UPDATE jobs_history
-        SET error_code = 1, error_text = 'Job Failed', completed = started
+        SET error_code = 1, error_text = 'Job Failed', completed = started, job_state = %s
         WHERE job_state = 1
     """
-    repository.queue_op(sql, run_now=True)
+    params = (JobState.ERROR.value,)
+    repository.queue_op(sql, params, run_now=True)
 
     logger.info("Finishing..")
 
