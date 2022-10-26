@@ -1,4 +1,4 @@
-drop table public.jobs_history;
+DROP TABLE IF EXISTS public.jobs_history;
 --
 -- This script creates a history table for MWA ASVO
 -- v1 and v2 logs to be imported into.
