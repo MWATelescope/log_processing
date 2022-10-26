@@ -137,6 +137,6 @@ dmypy.json
 # other
 stats.py
 logs/*
-#cfg/*
-#*.cfg
-#config.cfg
+cfg/*
+*.cfg
+config.cfg
