@@ -131,12 +131,12 @@ dmypy.json
 # pyenv
 .python-version
 
-*.cfg
-
 # macos
 .DS_STORE
 
 # other
 stats.py
 logs/*
-cfg/*
+#cfg/*
+#*.cfg
+#config.cfg
