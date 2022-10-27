@@ -27,9 +27,9 @@ def handler(repository, line, match):
 ```
 
 Where:
-    - repository is the repository object, which exposes the interface to the database.
-    - line is the line in the log file to be handled
-    - match is the regex match group
+- repository is the repository object, which exposes the interface to the database.
+- line is the line in the log file to be handled
+- match is the regex match group
 
 To make database calls in your handler, use repository.queue_op(sql, params). See the code for examples.
 
@@ -46,10 +46,11 @@ Run some code after logs have been processed. Can be used to perform further dat
 python main.py [OPTIONS]
 
 OPTIONS:
-    --log_path  Path to a directory contain the logs to process. Defaults to ../logs
-    --cfg       Path to a config file. The config file should contain information about the local database. (defaults to ../cfg/config.cfg)
-    --dry_run   Do not run the function handler for each line, just log it instead
-    --verbose   Enable verbose logging (default)
+    --log_path      Path to a directory contain the logs to process. Defaults to ../logs
+    --cfg           Path to a config file. The config file should contain information about the local database. (defaults to ../cfg/config.cfg)
+    --dry_run       Do not run the function handler for each line, just log it instead
+    --verbose       Enable verbose logging (default)
+    --setup_script  Path to a SQL file which will be used to configure the database prior to processing.
 ```
 
 ## Configuration
