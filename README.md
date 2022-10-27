@@ -48,9 +48,9 @@ python main.py [OPTIONS]
 OPTIONS:
     --log_path      Path to a directory contain the logs to process. Defaults to ../logs
     --cfg           Path to a config file. The config file should contain information about the local database. (defaults to ../cfg/config.cfg)
-    --dry_run       Do not run the function handler for each line, just log it instead
-    --verbose       Enable verbose logging (default)
-    --setup_script  Path to a SQL file which will be used to configure the database prior to processing.
+    --dry_run       Do not run the function handler for each line, just log it instead (default False)
+    --verbose       Enable verbose logging (default True)
+    --setup_script  Path to a SQL file which will be used to configure the database prior to processing. (default ../db/setup.sql)
 ```
 
 ## Configuration
