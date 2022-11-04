@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+import traceback
 import signal
 import re
 
@@ -58,6 +59,9 @@ class LogProcessor():
         try:
             no_handler = True
 
+            line = line.encode("ascii", "ignore")
+            line = line.decode()
+
             # For every rule in our dictionary
             for rule in ruleset:
                 # Try and apply the rule to the current line
@@ -81,6 +85,10 @@ class LogProcessor():
         except re.error:
             logger.error(f"Invalid regex: {rule}")
             raise
+        except Exception:
+            logger.error("There was an error with the line below.")
+            logger.warn(line)
+            raise
 
 
     def _process_file(self, file_path: str, ruleset: dict) -> None:
@@ -95,11 +103,12 @@ class LogProcessor():
             Dictionary which defines all of the rules needed to process the file where the key is regex to match a line, and the value is the name of the function used to process the line.
         """
         try:
-            with open(file_path) as file:
+            with open(file_path, encoding='utf8', errors="ignore") as file:
                 for line in file:
                     self._process_line(line, ruleset)
         except IOError:
             logger.info(f"Could not open file {file_path}")
+            raise
 
 
     def run(self) -> None:
@@ -124,4 +133,6 @@ class LogProcessor():
             # After we've finished processing, run the on_finish handler and execute any remaining operations.
             self.handlers.on_finish(self.repository)
         except Exception as e:
+            logger.info("Caught here")
             logger.error(e)
+            print(traceback.format_exc())

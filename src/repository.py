@@ -84,4 +84,5 @@ class PostgresRepository(Repository):
                         else:
                             cur.execute(sql)
         except Exception as e:
+            logger.error("Could not execute database operation.")
             raise e

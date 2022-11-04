@@ -54,8 +54,6 @@ def consumed_message(repository, line, match):
     job_params = json.loads(match.group(5).replace("'", '"'))
     timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
 
-    #if job_id == '2048':
-    #    print(line)
 
     logger.info(f"Job created: {job_id}")
 
@@ -105,8 +103,36 @@ def complete(repository, line, match):
     sql = """
         UPDATE jobs_history
         SET job_state = %s, product = %s, completed = %s
-        WHERE id = %s AND job_state != %s
+        WHERE id = %s 
     """
 
-    params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id,JobState.CANCELLED.value)                                                                                             
+    params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)                                                                                             
     repository.queue_op(sql, params)
+
+def query(repository, line, match):
+    """
+    Handler for "obsdownload" log entries, which denote the creation of new jobs.
+    """
+    #logger.info(line)
+    created = match.group(1)
+    ip_address = match.group(2)
+    obs_ids = match.group(3)
+
+    obs_ids = obs_ids.split(',')
+
+    for obs_id in obs_ids:
+        if len(obs_id) != 10 or not obs_id.isnumeric():
+            logger.error(f"Invalid obs_id {obs_id}")
+            return
+
+        logger.info(f"Job created: {obs_id}")
+
+        sql = """
+            INSERT INTO obsdownload_history (created, ip_address, obs_id)
+            VALUES
+                (%s, %s, %s)
+            ON CONFLICT do nothing;   
+        """
+
+        params = (created, ip_address, obs_id)
+        repository.queue_op(sql, params)
