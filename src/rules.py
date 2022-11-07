@@ -16,11 +16,7 @@ rules = {
     # },
     "proxy\.log.*": {
        "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*": "skip", # Does not start with a YYYY-MM-DD string
-       #".*obs_chunk_download.*": "skip",
-       #".*[^\x00-\x7F]+"
-       #".*Invalid Command.*": "skip",
        "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Path.*QUERY.*&like=+(.*)%&.*": "query",
-      # "(.*?),.*Client: (.*) Request.*QUERY.*&like=+(^(?!obs_chunk_download).*)%&.*": "query",
        ".*" : "skip"        
     }
 
