@@ -8,7 +8,7 @@ from processor import LogProcessor
 from repository import PostgresRepository
 from rules import rules
 
-logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s')
+logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s', stream=sys.stdout)
 logger = logging.getLogger()
 
 

@@ -140,3 +140,4 @@ logs/*
 cfg/*
 *.cfg
 config.cfg
+*.txt

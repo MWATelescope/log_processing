@@ -14,9 +14,15 @@ rules = {
     #    "(.*?),.*Conversion complete.*job_id: ([0-9]*) .* product: (.*)": "complete",
     #    ".*" : "skip"        
     # },
-    "proxy\.log.*": {
+    # "proxy\.log.*": {
+    #    "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*": "skip", # Does not start with a YYYY-MM-DD string
+    #    "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Request Complete. Path.*QUERY.*&like=+(.*)%&.*": "query",
+    #    ".*" : "skip"        
+    # }
+    "xaa*": {
        "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*": "skip", # Does not start with a YYYY-MM-DD string
-       "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Path.*QUERY.*&like=+(.*)%&.*": "query",
+       "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*ERROR.*": "skip", 
+       "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Request Complete. Path.*QUERY.*&like=+(.*)%&.*": "query",
        ".*" : "skip"        
     }
 
