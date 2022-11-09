@@ -19,7 +19,7 @@ rules = {
     #    "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Request Complete. Path.*QUERY.*&like=+(.*)%&.*": "query",
     #    ".*" : "skip"        
     # }
-    "xaa*": {
+    "proxy*": {
        "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*": "skip", # Does not start with a YYYY-MM-DD string
        "^(?![0-9]{4}-[0-9]{2}-[0-9]{2}).*ERROR.*": "skip", 
        "(.*?),.*Client: (\d+\.\d+\.\d+\.\d+) Request Complete. Path.*QUERY.*&like=+(.*)%&.*": "query",
