@@ -41,7 +41,7 @@ class LogProcessor():
         sys.exit(0)
 
 
-    def _process_line(self, line: str, ruleset: dict) -> None:
+    def _process_line(self, file_path: str, line: str, ruleset: dict) -> None:
         """
         Method to process a single line of a log file.
 
@@ -71,7 +71,7 @@ class LogProcessor():
                     no_handler = False
                     
                     handler = getattr(self.handlers, ruleset[rule])
-                    handler(self.repository, line, match)
+                    handler(self.repository, file_path, line, match)
 
                     break
 
@@ -105,10 +105,21 @@ class LogProcessor():
         try:
             with open(file_path, encoding='utf8', errors="ignore") as file:
                 for line in file:
-                    self._process_line(line, ruleset)
+                    self._process_line(file_path, line, ruleset)
         except IOError:
             logger.info(f"Could not open file {file_path}")
             raise
+
+    def process_folder(self, folder_name):
+        for file_name in os.listdir(folder_name):
+            if os.path.isfile(file_name):
+                # For each set of rules that we've defined
+                for ruleset in self.rules.keys():
+                    # If the key of the ruleset is a regex match for the filename, use that ruleset to process the file.
+                    if re.search(ruleset, file_name):
+                        self._process_file(file_name, self.rules[ruleset])
+            else:
+                self.process_folder(file_name)
 
 
     def run(self) -> None:
@@ -118,17 +129,7 @@ class LogProcessor():
         try:
             self.handlers.on_start(self.repository)
 
-            # For each file in our log directory
-            for file_name in os.listdir(self.log_path):
-                file_path = os.path.join(self.log_path, file_name)
-
-                # Only attempt to process files, will go one level deep.
-                if os.path.isfile(file_path):
-                    # For each set of rules that we've defined
-                    for ruleset in self.rules.keys():
-                        # If the key of the ruleset is a regex match for the filename, use that ruleset to process the file.
-                        if re.search(ruleset, file_name):
-                            self._process_file(file_path, self.rules[ruleset])
+            self.process_folder(self.log_path)
 
             # After we've finished processing, run the on_finish handler and execute any remaining operations.
             self.handlers.on_finish(self.repository)

@@ -79,6 +79,7 @@ def parse_arguments(args: list = sys.argv[1:]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--log_path", default="../logs")
+    parser.add_argument("--output_path", default="../output")
     parser.add_argument("--cfg", default="../cfg/config.cfg")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--verbose", "-v", action="store_true", default=True)

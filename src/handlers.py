@@ -17,7 +17,7 @@ class JobState(Enum):
     CANCELLED = 5
 
 
-def skip(repository, line, match) -> None:
+def skip(repository, file_path, line, match) -> None:
     return
 
 
@@ -43,7 +43,7 @@ def on_finish(repository) -> None:
     logger.info("Finishing..")
 
 
-def consumed_message(repository, line, match):
+def consumed_message(repository, file_path, line, match):
     """
     Handler for "consumed message" log entries, which denote the creation of new jobs.
     """
@@ -69,7 +69,7 @@ def consumed_message(repository, line, match):
     repository.queue_op(sql, params)
 
 
-def cancel(repository, line, match):
+def cancel(repository, file_path, line, match):
     """
     Handler for "job cancelled" log entries, which denote that a job has been cancelled.
     """
@@ -90,7 +90,7 @@ def cancel(repository, line, match):
     repository.queue_op(sql, params)
 
 
-def complete(repository, line, match):
+def complete(repository, file_path, line, match):
     """
     Handler for "visibility download completed" log entries, which denote that a job was processed successfully.
     """
@@ -110,7 +110,7 @@ def complete(repository, line, match):
     params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)                                                                                             
     repository.queue_op(sql, params)
 
-def query(repository, line, match):
+def query(repository, file_path, line, match):
     """
     Handler for "obsdownload" log entries, which denote the creation of new jobs.
     """
@@ -137,3 +137,12 @@ def query(repository, line, match):
 
         params = (created, ip_address, obs_id)
         repository.queue_op(sql, params)
+
+
+def ngas_retrieve(repository, file_path, line, match):
+    # Allow the user to supply an output path. Which is the directory that filtered logs can be stored in.
+    # Create a new file at output_path/file_path (might need to manipulate this so that the whole directory is not stored)
+    # Maybe the name of this new file should be the date/time contained within the file name? Use some regex to match this
+    # Append the current line to the file
+
+    pass
