@@ -142,3 +142,4 @@ cfg/*
 config.cfg
 *.txt
 output
+.vscode

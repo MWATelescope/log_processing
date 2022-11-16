@@ -10,6 +10,8 @@ DROP TABLE IF EXISTS public.jobs_history;
 -- v1 and v2 logs to be imported into.
 --
 
+DROP TABLE IF EXISTS public.ngas_history;
+
 CREATE TABLE IF NOT EXISTS public.jobs_history
 (
     job_type integer NOT NULL,
@@ -24,17 +26,6 @@ CREATE TABLE IF NOT EXISTS public.jobs_history
     product json,
     id bigint NOT NULL,
     CONSTRAINT jobs_history_pkey PRIMARY KEY (id)
-)
-WITH (
-    OIDS = FALSE
-)
-TABLESPACE pg_default;
-
-CREATE TABLE IF NOT EXISTS public.obsdownload_history
-(
-    created timestamp without time zone,
-    ip_address text NOT NULL,
-    obs_id bigint NOT NULL
 )
 WITH (
     OIDS = FALSE
@@ -89,7 +80,36 @@ CREATE INDEX IF NOT EXISTS jobs_history_users_idx
 
 -- DROP INDEX IF EXISTS public.obsdownload_history_obsid_index;
 
+CREATE TABLE IF NOT EXISTS public.obsdownload_history
+(
+    created timestamp without time zone,
+    ip_address text NOT NULL,
+    obs_id bigint NOT NULL
+)
+WITH (
+    OIDS = FALSE
+)
+TABLESPACE pg_default;
+
 CREATE INDEX IF NOT EXISTS obsdownload_history_obs_id_index
     ON public.obsdownload_history USING btree
+    (obs_id ASC NULLS LAST)
+    TABLESPACE pg_default;
+
+
+
+CREATE TABLE IF NOT EXISTS public.ngas_history
+(
+    completed timestamp without time zone,
+    obs_id bigint NOT NULL,
+    num_files bigint NOT NULL
+)
+WITH (
+    OIDS = FALSE
+)
+TABLESPACE pg_default;
+
+CREATE INDEX IF NOT EXISTS ngas_history_obs_id_index
+    ON public.ngas_history USING btree
     (obs_id ASC NULLS LAST)
     TABLESPACE pg_default;

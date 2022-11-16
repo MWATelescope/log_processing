@@ -1,11 +1,11 @@
 import os
 import sys
 import logging
-import traceback
 import signal
 import re
 
-from importlib import import_module
+from handlers import Handler
+from repository import Repository
 
 logger = logging.getLogger()
 
@@ -13,17 +13,15 @@ logger = logging.getLogger()
 class LogProcessor():
     def __init__(
         self,
-        log_path: str, 
-        rules: dict, 
-        handlers: str, 
-        dry_run: bool, 
-        repository
+        log_path: str,
+        dry_run: bool,
+        repository: Repository,
+        handler: Handler,
     ):
         self.log_path = log_path
-        self.rules = rules
         self.dry_run = dry_run
         self.repository = repository
-        self.handlers = import_module(handlers)
+        self.handler = handler
 
         for sig in [signal.SIGINT]:
             signal.signal(sig, self._signal_handler)
@@ -41,7 +39,7 @@ class LogProcessor():
         sys.exit(0)
 
 
-    def _process_line(self, file_path: str, line: str, ruleset: dict) -> None:
+    def _process_line(self, file_path: str, line: str, ruleset: str) -> None:
         """
         Method to process a single line of a log file.
 
@@ -57,25 +55,17 @@ class LogProcessor():
             return
 
         try:
-            no_handler = True
-
-            line = line.encode("ascii", "ignore")
-            line = line.decode()
-
             # For every rule in our dictionary
-            for rule in ruleset:
+            for rule in self.handler.rules[ruleset]:
                 # Try and apply the rule to the current line
                 match = re.match(rule, line)
 
                 if match is not None:
-                    no_handler = False
-                    
-                    handler = getattr(self.handlers, ruleset[rule])
+                    handler = self.handler.rules[ruleset][rule]
                     handler(self.repository, file_path, line, match)
 
                     break
-
-            if no_handler:
+            else:
                 raise ValueError
 
         except ValueError:
@@ -91,7 +81,7 @@ class LogProcessor():
             raise
 
 
-    def _process_file(self, file_path: str, ruleset: dict) -> None:
+    def _process_file(self, file_path: str, ruleset: str) -> None:
         """
         Method to process a single log file
 
@@ -110,16 +100,19 @@ class LogProcessor():
             logger.info(f"Could not open file {file_path}")
             raise
 
+
     def process_folder(self, folder_name):
-        for file_name in os.listdir(folder_name):
-            if os.path.isfile(file_name):
+        for inode in os.listdir(folder_name):
+            path = os.path.join(folder_name, inode)
+
+            if os.path.isfile(path):
                 # For each set of rules that we've defined
-                for ruleset in self.rules.keys():
+                for ruleset in self.handler.rules.keys():
                     # If the key of the ruleset is a regex match for the filename, use that ruleset to process the file.
-                    if re.search(ruleset, file_name):
-                        self._process_file(file_name, self.rules[ruleset])
+                    if re.search(ruleset, path):
+                        self._process_file(path, ruleset)
             else:
-                self.process_folder(file_name)
+                self.process_folder(path)
 
 
     def run(self) -> None:
@@ -127,13 +120,10 @@ class LogProcessor():
         Method to go and process logs!
         """
         try:
-            self.handlers.on_start(self.repository)
+            self.handler.startup(self.repository)
 
             self.process_folder(self.log_path)
 
-            # After we've finished processing, run the on_finish handler and execute any remaining operations.
-            self.handlers.on_finish(self.repository)
+            self.handler.shutdown(self.repository)
         except Exception as e:
-            logger.info("Caught here")
             logger.error(e)
-            print(traceback.format_exc())

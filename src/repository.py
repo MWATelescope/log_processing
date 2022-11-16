@@ -1,34 +1,42 @@
 import sys
 import logging
-from abc import abstractmethod, ABC
 
-from psycopg import Connection, connect
+from psycopg import connect, Connection
 
 logger = logging.getLogger()
 
 
-class Repository(ABC):
-    def __init__(self, dsn: str | None = None, setup_script: str = None, connection=None, BATCH_SIZE: int=1000):
-        self.conn = self._setup_connection(dsn, connection)
+class Repository:
+    pass
+
+
+class PostgresRepository(Repository):
+    def __init__(self, dsn: str | None = None, connection: Connection | None = None, setup_script: str | None = None, BATCH_SIZE: int = 1000):
+        self.conn: Connection = self._setup_connection(dsn=dsn, connection=connection)
         self.ops: list[tuple] = []
-        self.BATCH_SIZE = BATCH_SIZE
-        self.setup_db(setup_script)
+        self.BATCH_SIZE: int = BATCH_SIZE
+        self._setup_db(setup_script=setup_script)
 
-    @abstractmethod
-    def _setup_connection(self, dsn: str | None = None, connection=None):
-        """
-        Abstract method to be implemented in a concrete class. Should return a connection to some data store.
-        """
-        raise NotImplementedError
+    def _close(self):
+        self.conn.close()
 
-    @abstractmethod
-    def run_ops(self, ops: list[tuple]):
+    def _setup_connection(self, dsn: str | None = None, connection: Connection | None = None) -> Connection:
         """
-        The programmer should implement a concrete method which accepts a list of tuples (containing some SQL and paramters respectively) and run them inside of a transaction.
+        Will return the provided connection if one exists (useful for testing). Otherwise will attempt to connect to the provided DSN.
         """
-        raise NotImplementedError
+        try:
+            logger.info("Connecting to database.")
 
-    def setup_db(self, setup_script: str):
+            if connection is not None:
+                return connection
+
+            return connect(dsn, autocommit=False)
+        except Exception as e:
+            logger.error("Could not connect to database.")
+            logger.error(e)
+            sys.exit(1)
+
+    def _setup_db(self, setup_script: str | None = None):
         """
         Run a database setup script.
         """
@@ -50,28 +58,10 @@ class Repository(ABC):
         # By default, execute commands in batches of BATCH_SIZE, or override with run_now
         if len(self.ops) == self.BATCH_SIZE or run_now:
             logger.info(f"Running batch of {len(self.ops)}.")
-            self.run_ops(self.ops)
+            self._run_ops(self.ops)
             self.ops = []
 
-
-class PostgresRepository(Repository):
-    def _setup_connection(self, dsn: str, connection: Connection) -> Connection:
-        """
-        Will return the provided connection if one exists (useful for testing). Otherwise will attempt to connect to the provided DSN.
-        """
-        try:
-            logger.info("Connecting to database.")
-
-            if connection is not None:
-                return connection
-
-            return connect(dsn, autocommit=False)
-        except Exception as e:
-            logger.error("Could not connect to database.")
-            logger.error(e)
-            sys.exit(1)
-
-    def run_ops(self, ops: list[tuple]):
+    def _run_ops(self, ops: list[tuple]):
         """
         Opens a transaction, executes all of the (sql, params) tuples in ops inside of the transaction, and commits it.
         """

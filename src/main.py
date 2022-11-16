@@ -6,7 +6,7 @@ from configparser import ConfigParser
 
 from processor import LogProcessor
 from repository import PostgresRepository
-from rules import rules
+from log_handler import handler
 
 logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s', stream=sys.stdout)
 logger = logging.getLogger()
@@ -79,7 +79,6 @@ def parse_arguments(args: list = sys.argv[1:]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--log_path", default="../logs")
-    parser.add_argument("--output_path", default="../output")
     parser.add_argument("--cfg", default="../cfg/config.cfg")
     parser.add_argument("--dry_run", action="store_true")
     parser.add_argument("--verbose", "-v", action="store_true", default=True)
@@ -106,10 +105,9 @@ def main() -> None:
 
     log_processor = LogProcessor(
         args.log_path,
-        rules,
-        'handlers',
         args.dry_run,
-        repository
+        repository,
+        handler
     )
 
     log_processor.run()
