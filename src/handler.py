@@ -1,62 +1,83 @@
 import sys
 import json
+import time
+import atexit
 import logging
 
 from enum import Enum
 from datetime import datetime
+from collections import defaultdict
+from abc import ABC, abstractmethod
 
 from psycopg import connect, Connection
 
 logger = logging.getLogger()
 
 
-def on_startup(func):
-    def wrapped(self):
-        self.startup_functions.append(func)
-    return wrapped
-
-def on_shutdown(func):
-    def wrapped(self):
-        self.shutdown_functions.append(func)
-    return wrapped
-
-
-
-class HandlerBase:
-    def __init__(self):
-        self.startup_functions = []
-        self.shutdown_functions = []
-
+class HandlerBase(ABC):
+    """
+    Base handler class, provides the skip method and forces any subclassed objects to implement startup and shutdown methods.
+    """
+    @abstractmethod
     def startup(self):
-        for func in self.startup_functions:
-            func()
+        """
+        Abstract method which should be overridden. Will be ran at the start of the process, can be used for setup.
+        """
+        raise NotImplementedError
 
+    @abstractmethod
     def shutdown(self):
-        for func in self.shutdown_functions:
-            func()
+        """
+        Abstract method which should be overridden. Will be ran at the end of the process, can be used for cleanup.
+        """
+        raise NotImplementedError
 
-    def skip(self):
+    def skip(self, *args):
+        """
+        Method used to skip a line.
+        """
         return
-    
+
+
 class PostgresHandler(HandlerBase):
     def __init__(self, dsn: str | None = None, connection: Connection | None = None, setup_script: str | None = None, BATCH_SIZE: int = 1000):
+        super().__init__()
         self.conn: Connection = self._setup_connection(dsn=dsn, connection=connection)
         self.ops: list[tuple] = []
         self.BATCH_SIZE: int = BATCH_SIZE
         self._setup_db(setup_script=setup_script)
+        atexit.register(self._close)
 
-    @on_shutdown
     def _close(self):
+        """
+        Run any outstanding operations in our queue and then close the connection to the database.
+        """
+        self._run_ops(self.ops)
         self.conn.close()
 
     def _setup_connection(self, dsn: str | None = None, connection: Connection | None = None) -> Connection:
         """
         Will return the provided connection if one exists (useful for testing). Otherwise will attempt to connect to the provided DSN.
+
+        Parameters
+        ----------
+        dsn: str
+            Postgresql connection string.
+        connection: Connection
+            Existing psycopg3 database connection.
+
+        Returns
+        -------
+        Connection
+            psycopg3 database connection.
         """
         try:
             logger.info("Connecting to database.")
 
             if connection is not None:
+                if not isinstance(connection, Connection):
+                    raise Exception("Provided connection is not a psycopg3 connection.")
+                    
                 return connection
 
             return connect(dsn, autocommit=False)
@@ -68,6 +89,11 @@ class PostgresHandler(HandlerBase):
     def _setup_db(self, setup_script: str | None = None):
         """
         Run a database setup script.
+
+        Parameters
+        ----------
+        setup_script: str
+            Path to a SQL file which will be executed by the database.
         """
         if setup_script is not None:
             try:
@@ -80,23 +106,36 @@ class PostgresHandler(HandlerBase):
 
     def queue_op(self, sql: str, args: tuple | None = None, run_now: bool = False) -> None:
         """
-        Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is 1000, execute them all 
+        Adds the provided sql and args as a tuple to an internal ops list. When the length of this list is BATCH_SIZE, execute them all.
+
+        Parameters
+        ----------
+        sql: str
+            SQL to be executed
+        args: tuple
+            Args tuple which will be injected into sql
+        run_now: bool
+            Whether to run the current operation now or queue it up for later.
         """
         self.ops.append((sql, args))
 
         # By default, execute commands in batches of BATCH_SIZE, or override with run_now
         if len(self.ops) == self.BATCH_SIZE or run_now:
-            logger.info(f"Running batch of {len(self.ops)}.")
             self._run_ops(self.ops)
             self.ops = []
 
     def _run_ops(self, ops: list[tuple]):
         """
         Opens a transaction, executes all of the (sql, params) tuples in ops inside of the transaction, and commits it.
+
+        ops: list[tuple]
+            A list of (sql, args) pairs to be executed.
         """
         try:
             with self.conn.transaction():
                 with self.conn.cursor() as cur:
+                    logger.info(f"Running batch of {len(ops)}.")
+
                     for (sql, args) in ops:
                         if args is not None:
                             cur.execute(sql, args)
@@ -116,25 +155,36 @@ class JobState(Enum):
     CANCELLED = 5
 
 
+THRESHOLD = 60 * 60 * 24 * 6 # 1 day
+
+
 class LogHandler(PostgresHandler):
     def __init__(self, dsn: str | None = None, connection: Connection | None = None, setup_script: str | None = None):
         super().__init__(dsn=dsn, connection=connection, setup_script=setup_script)
+        self.obs_downloads = defaultdict(list)
 
-        self.THRESHOLD = 60 * 60 * 24
-        self.obs_downloads = {}
+    def startup(self):
+        """
+        Function to run at the start of processing.
+        """
+        self.start_processing()
 
-    @on_startup
+    def shutdown(self):
+        """
+        Cleanup function to run at the end of processing.
+        """
+        #self.asvo_cleanup()
+        self.ngas_cleanup()
+
     def start_processing(self):
         logger.info("Starting processing.")
 
-    @on_shutdown
-    def cleanup_asvo(self):
+    def asvo_cleanup(self):
         """
         Runs at the end of the processing routine. We're making the assumption that anything 
         that wasn't completed or cancelled, failed for some reason.
         So go and update the database to set the error fields and completed time properly.
         """
-
         sql = """
             UPDATE jobs_history
             SET error_code = 1, error_text = 'Job Failed', completed = started, job_state = %s
@@ -145,18 +195,16 @@ class LogHandler(PostgresHandler):
 
         logger.info("Finishing..")
 
-    def consumed_message(self, file_path, line, match):
+    def asvo_consumed_message(self, file_path, line, match):
         """
         Handler for "consumed message" log entries, which denote the creation of new jobs.
         """
-
         timestamp = match.group(1)
         job_id = match.group(2)
         job_type = match.group(3)
         user_id = match.group(4)
         job_params = json.loads(match.group(5).replace("'", '"'))
         timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-
 
         logger.info(f"Job created: {job_id}")
 
@@ -170,11 +218,10 @@ class LogHandler(PostgresHandler):
         params = (job_id, job_type, user_id, json.dumps(job_params), JobState.PROCESSING.value, timestamp, timestamp)
         self.queue_op(sql, params)
 
-    def cancel(self, file_path, line, match):
+    def asvo_cancel(self, file_path, line, match):
         """
         Handler for "job cancelled" log entries, which denote that a job has been cancelled.
         """
-
         timestamp = match.group(1)
         job_id = match.group(2)
         timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
@@ -190,7 +237,7 @@ class LogHandler(PostgresHandler):
         params = (JobState.CANCELLED.value, timestamp, job_id,JobState.PROCESSING.value)
         self.queue_op(sql, params)
 
-    def complete(self, file_path, line, match):
+    def asvo_complete(self, file_path, line, match):
         """
         Handler for "visibility download completed" log entries, which denote that a job was processed successfully.
         """
@@ -210,7 +257,7 @@ class LogHandler(PostgresHandler):
         params = (JobState.COMPLETE.value, json.dumps(product), timestamp, job_id)                                                                                             
         self.queue_op(sql, params)
 
-    def query(self, file_path, line, match):
+    def obsdownload_query(self, file_path, line, match):
         """
         Handler for "obsdownload" log entries, which denote the creation of new jobs.
         """
@@ -238,6 +285,30 @@ class LogHandler(PostgresHandler):
             self.queue_op(sql, params)
 
     def ngas_retrieve(self, file_path, line, match):
+        """
+        Function to parse all ngas RETRIEVE lines into a dictionary where:
+        - The key is an obs_id
+        - The value is an array of "downloads" for that obs_id.
+        - Each download contains:
+            - earliest: the oldest timestamp for that download (in unix time)
+            - latest: the newest timestamp for that download (in unix time)
+            - files: a list of files for that download
+
+        Of the format:
+
+        obs_downloads = {
+            obs_id_1: [
+                {
+                    'earliest': 1668647943,
+                    'latest': 1668649943,
+                    'files': [
+                        'obs_id_1_1.fits',
+                        'obs_id_1_2.fits'
+                    ]
+                }
+            ]
+        }
+        """
         log_datetime = match.group(1)
         filename = match.group(3)
         timestamp = time.mktime(datetime.strptime(log_datetime, "%Y-%m-%d %H:%M:%S").timetuple())
@@ -245,46 +316,29 @@ class LogHandler(PostgresHandler):
 
         logger.info(f"Processing file {filename}")
 
-        if obs_id in self.obs_downloads:
-            # If we've seen it before
-            for download in self.obs_downloads[obs_id]:
-                # For each download for our obs_id
-                if download['earliest'] - self.THRESHOLD < timestamp < download['latest'] + self.THRESHOLD:
-                    # If the timestamp for our entry is within some threshold of this download
-                    if filename not in download['files']:
-                        # We haven't see the file in this download, add it and update the most_recent timestamp if it's newer than what we have already. Then stop looking.
-                        download['files'].append(filename)
-                        download['latest'] = timestamp if timestamp > download['latest'] else download['latest']
-                        download['earliest'] = timestamp if timestamp < download['earliest'] else download['earliest']
+        for download in self.obs_downloads[obs_id]:
+            # For each download for our obs_id
+            if download['earliest'] - THRESHOLD < timestamp < download['latest'] + THRESHOLD and \
+            filename not in download['files']:
+                # If the timestamp for our entry is within some threshold of this download and we haven't seen the file before.
+                # Add it to our list and update our timestamps if needed.
+                download['files'].append(filename)
+                download['latest'] = timestamp if timestamp > download['latest'] else download['latest']
+                download['earliest'] = timestamp if timestamp < download['earliest'] else download['earliest']
 
-                        break
-                    else:
-                        # We found the file in the current download, check the next one.
-                        continue
-                else:
-                    # This timestamp is outside of the threshold for the current download, try the next one.
-                    continue
-            else:
-                # This file is part of a new download, initialise it and add it to the downloads for this obs id.
-                download = {
-                    'latest': timestamp,
-                    'earliest': timestamp,
-                    'files': [filename]
-                }
-
-                self.obs_downloads[obs_id].append(download)       
+                break
         else:
-            # We havent seen this obs_id before, create a new download for it.
-            download = {
+            # Either we haven't seen this obs_id before, or its part of a new download. Go and create an entry for it.
+            self.obs_downloads[obs_id].append({
                 'latest': timestamp,
                 'earliest': timestamp,
                 'files': [filename]
-            }
+            })
 
-            self.obs_downloads[obs_id] = [download]
-
-    @on_shutdown
-    def cleanup_ngas(self):
+    def ngas_cleanup(self):
+        """
+        Parse our obs_downloads structure and create corresponding rows in our database.
+        """
         #print(json.dumps(obs_downloads, sort_keys=True, indent=4))
         for obs_id in self.obs_downloads:
             for download in self.obs_downloads[obs_id]:
