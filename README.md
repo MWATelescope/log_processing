@@ -1,13 +1,29 @@
 # log_processing
 Python utility for log processing. Allows the user to define regex rules which match each line, and function handlers to process those lines.
 
-## Rules
-Define a dictionary in rules.py of the format:
+## Usage
+Create a file and import the LogProcessor class. Create an instance of this object then call the run method, passing in a directory containing some logs that you would like to process.
+
+Two things are required to setup the processor. A rules dictionary and a handler object.
+
+```python
+from Processor import LogProcessor
+
+log_processor = LogProcessor(
+    rules=rules,
+    handler=handler
+)
+
+log_processor.run('/path/to/my/logs')
+```
+
+### Rules
+Rules is a standard python dictionary of the format:
 
 ```python
 rules = {
     "file_regex": {
-        "line_regex": "handler",
+        "line_regex": "handler_function",
     }
 }
 ```
@@ -15,31 +31,76 @@ rules = {
 Where:
 - file_regex is some regex to match the name of a file,
 - line_regex is some regex to match a line within the file,
-- handler is the name of a function in handlers.py which will be used to process the line.
+- handler_function is the name of a function in your handler object which will be used to process the line.
 
-## Handlers
-Handlers should be defined in handlers.py
+### Handlers
+The handler object should be subclassed from the HandlerBase class in handlers.py. Or, if you wish to parse your logs and upload into a Postgresql database, you can subclass from the PostgresHandler class.
 
-Handlers by default will have the signature
+The handler object should implement startup and shutdown methods. Which will be ran at the start and end of the processing run respectively. These can be used to perform some database setup or cleanup.
+
+handler_functions will have the signature:
 
 ```python
-def handler(repository, line, match):
+def handler(self, file_path, line, match):
 ```
 
 Where:
-    - repository is the repository object, which exposes the interface to the database.
+    - file_path is the path to the file of the current line
     - line is the line in the log file to be handled
     - match is the regex match group
 
-To make database calls in your handler, use repository.queue_op(sql, params). See the code for examples.
+When using the PostgresHandler, you can call self.queue_op(sql, params) in your handler functions to queue a database operation. By default this will run SQL operations in batches of 1000, you can customise this by passing the BATCH_SIZE parameter in the constructor to PostgresHandler. If you want to run a database operation immediately, call self.queue_op(sql, params, run_now=True) immediately.
 
-There are some special handlers
+### Full example
+```python
+from Processor import LogProcessor
+from handler import PostgresHandler
 
-### on_start
-If you wish to run some code at the start of the run, define a handler called on_start. This can be used to clear out data from previous runs.
+class MyHandler(PostgresHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs):
 
-### on_finish
-Run some code after logs have been processed. Can be used to perform further database cleanup or analysis.
+    def startup(self):
+        """Optionally run some setup"""
+        pass
+
+    def shutdown(self):
+        """Optionally run some cleanup"""
+        pass
+
+    def my_handler(self, file_path, line, match):
+        field_1 = match.group(1)
+        field_2 = match.group(2)
+
+        sql = """
+            INSERT INTO my_table (field_1, field_2)
+            VALUES
+                (%s, %s);
+        """
+        params = (field_1, field_2)
+
+        self.queue_op(sql, params, run_now=False)
+
+rules = {
+    'example\.log': {
+        '(.*),(.*)': 'my_handler',
+        '.*': 'skip'
+    }
+}
+
+handler = MyHandler(
+    dsn='user:pass@localhost:5432/test',
+    setup_script='path/to/db_setup'
+)
+
+log_processor = LogProcessor(
+    rules=rules,
+    handler=handler
+)
+
+log_processor.run('/path/to/my/logs')
+```
+
 
 ## Usage
 ```txt
