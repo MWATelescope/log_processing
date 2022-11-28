@@ -53,7 +53,7 @@ When using the PostgresHandler, you can call self.queue_op(sql, params) in your 
 
 ### Full example
 ```python
-from Processor import LogProcessor
+from processor import LogProcessor
 from handler import PostgresHandler
 
 class MyHandler(PostgresHandler):
