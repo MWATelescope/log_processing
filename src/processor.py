@@ -4,7 +4,7 @@ import logging
 import signal
 import re
 
-from importlib import import_module
+from handler import HandlerBase
 
 logger = logging.getLogger()
 
@@ -12,23 +12,25 @@ logger = logging.getLogger()
 class LogProcessor():
     def __init__(
         self,
-        log_path: str, 
-        rules: dict, 
-        handlers: str, 
-        dry_run: bool, 
-        repository
+        dry_run: bool = False,
+        rules: dict = {},
+        handler: HandlerBase = None,
     ):
-        self.log_path = log_path
-        self.rules = rules
         self.dry_run = dry_run
-        self.repository = repository
-        self.handlers = import_module(handlers)
+        self.rules = rules
+        self.handler = handler
 
         for sig in [signal.SIGINT]:
             signal.signal(sig, self._signal_handler)
 
         if self.dry_run:
             logger.info("Dry run enabled.")
+
+        if not rules:
+            raise ValueError("Rules dictionary cannot be empty.")
+
+        if not isinstance(handler, HandlerBase):
+            raise ValueError("Handler object must be an instance of HandlerBase.")
 
 
     def _signal_handler(self, sig, frame):
@@ -40,7 +42,7 @@ class LogProcessor():
         sys.exit(0)
 
 
-    def _process_line(self, line: str, ruleset: dict) -> None:
+    def _process_line(self, file_path: str, line: str, rules: str) -> None:
         """
         Method to process a single line of a log file.
 
@@ -56,22 +58,17 @@ class LogProcessor():
             return
 
         try:
-            no_handler = True
-
             # For every rule in our dictionary
-            for rule in ruleset:
+            for rule in rules:
                 # Try and apply the rule to the current line
                 match = re.match(rule, line)
 
                 if match is not None:
-                    no_handler = False
-                    
-                    handler = getattr(self.handlers, ruleset[rule])
-                    handler(self.repository, line, match)
+                    handler = getattr(self.handler, rules[rule])
+                    handler(file_path, line, match)
 
                     break
-
-            if no_handler:
+            else:
                 raise ValueError
 
         except ValueError:
@@ -81,9 +78,16 @@ class LogProcessor():
         except re.error:
             logger.error(f"Invalid regex: {rule}")
             raise
+        except AttributeError:
+            logger.error("No matching handler found in handler object.")
+            raise
+        except Exception:
+            logger.error("There was an error with the line below.")
+            logger.warn(line)
+            raise
 
 
-    def _process_file(self, file_path: str, ruleset: dict) -> None:
+    def _process_file(self, file_path: str, rules: str) -> None:
         """
         Method to process a single log file
 
@@ -95,33 +99,48 @@ class LogProcessor():
             Dictionary which defines all of the rules needed to process the file where the key is regex to match a line, and the value is the name of the function used to process the line.
         """
         try:
-            with open(file_path) as file:
+            with open(file_path, encoding='utf8', errors="ignore") as file:
                 for line in file:
-                    self._process_line(line, ruleset)
+                    self._process_line(file_path, line, rules)
         except IOError:
             logger.info(f"Could not open file {file_path}")
+            raise
 
 
-    def run(self) -> None:
+    def _process_folder(self, folder_name):
         """
-        Method to go and process logs!
+        Recursively process the directory to find all files matching some ruleset.
         """
         try:
-            self.handlers.on_start(self.repository)
+            for inode in os.listdir(folder_name):
+                path = os.path.join(folder_name, inode)
 
-            # For each file in our log directory
-            for file_name in os.listdir(self.log_path):
-                file_path = os.path.join(self.log_path, file_name)
-
-                # Only attempt to process files, will go one level deep.
-                if os.path.isfile(file_path):
+                if os.path.isfile(path):
                     # For each set of rules that we've defined
                     for ruleset in self.rules.keys():
                         # If the key of the ruleset is a regex match for the filename, use that ruleset to process the file.
-                        if re.search(ruleset, file_name):
-                            self._process_file(file_path, self.rules[ruleset])
+                        if re.search(ruleset, path):
+                            self._process_file(path, self.rules[ruleset])
+                else:
+                    self._process_folder(path)
+        except (FileNotFoundError, NotADirectoryError):
+            raise Exception(f"Could not open the provided directory {folder_name}")
 
-            # After we've finished processing, run the on_finish handler and execute any remaining operations.
-            self.handlers.on_finish(self.repository)
+
+    def run(self, log_path: str) -> None:
+        """
+        Method to go and process logs!
+
+        Parameters
+        ----------
+        log_path: str
+            Path to a directory containing some logs we want to process.
+        """
+        try:
+            self.handler.startup()
+
+            self._process_folder(log_path)
+
+            self.handler.shutdown()
         except Exception as e:
             logger.error(e)

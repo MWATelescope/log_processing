@@ -140,3 +140,6 @@ logs/*
 cfg/*
 *.cfg
 config.cfg
+*.txt
+output
+.vscode

@@ -5,10 +5,10 @@ import argparse
 from configparser import ConfigParser
 
 from processor import LogProcessor
-from repository import PostgresRepository
+from handler import LogHandler
 from rules import rules
 
-logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s')
+logging.basicConfig(format='[%(asctime)s %(levelname)s] %(message)s', stream=sys.stdout)
 logger = logging.getLogger()
 
 
@@ -101,17 +101,15 @@ def main() -> None:
     else:
         logger.setLevel(logging.WARN)
 
-    repository = PostgresRepository(dsn=dsn, setup_script=args.db_setup)
+    handler = LogHandler(dsn=dsn, setup_script=args.db_setup)
 
     log_processor = LogProcessor(
-        args.log_path,
-        rules,
-        'handlers',
-        args.dry_run,
-        repository
+        dry_run=args.dry_run,
+        rules=rules,
+        handler=handler
     )
 
-    log_processor.run()
+    log_processor.run(args.log_path)
 
 
 if __name__ == "__main__":
