@@ -1,0 +1,6 @@
+DROP TABLE IF EXISTS test;
+
+CREATE TABLE IF NOT EXISTS test (
+  id SERIAL PRIMARY KEY,
+  name varchar(20)
+);

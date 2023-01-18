@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "regex-log-parser"
+version = "1.0.0"
+description = "Python library to process hetrogenous log files by defining simple regex patterns and functions to handle them. Includes classes to parse data into postgres database."
+readme = "README.md"
+authors = [{ name = "Harrison Barlow", email = "harrison.barlow@curtin.edu" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+keywords = ["regex", "log", "parsing"]
+dependencies = []
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = ["pip-tools", "pytest", 'pytest-postgresql']
+postgres = ['psycopg >= 3.0']
+
+[project.urls]
+Homepage = "https://github.com/MWATelescope/log_processing/"

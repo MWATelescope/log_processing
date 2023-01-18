@@ -4,9 +4,13 @@ import logging
 import signal
 import re
 
-from handler import HandlerBase
+from .handler import HandlerBase
 
 logger = logging.getLogger()
+
+
+class RuleNotFoundError(Exception):
+    pass
 
 
 class LogProcessor():
@@ -69,9 +73,9 @@ class LogProcessor():
 
                     break
             else:
-                raise ValueError
+                raise RuleNotFoundError
 
-        except ValueError:
+        except RuleNotFoundError:
             logger.warn("No matching rule was found for the line below. Please create one.")
             logger.warn(line)
             raise
@@ -107,7 +111,7 @@ class LogProcessor():
             raise
 
 
-    def _process_folder(self, folder_name):
+    def _process_folder(self, folder_name: str):
         """
         Recursively process the directory to find all files matching some ruleset.
         """
@@ -144,3 +148,4 @@ class LogProcessor():
             self.handler.shutdown()
         except Exception as e:
             logger.error(e)
+            raise
