@@ -3,30 +3,27 @@ import atexit
 import logging
 
 from typing import Optional
-from abc import ABC, abstractmethod
 
 from psycopg import connect, Connection
 
 logger = logging.getLogger()
 
 
-class HandlerBase(ABC):
+class HandlerBase():
     """
-    Base handler class, provides the skip method and forces any subclassed objects to implement startup and shutdown methods.
+    Base handler class, provides the skip method and startup/shutdown methods.
     """
-    @abstractmethod
     def startup(self):
         """
-        Abstract method which should be overridden. Will be ran at the start of the process, can be used for setup.
+        Will be ran at the start of the process, can be used for setup.
         """
-        raise NotImplementedError
+        pass
 
-    @abstractmethod
     def shutdown(self):
         """
-        Abstract method which should be overridden. Will be ran at the end of the process, can be used for cleanup.
+        Will be ran at the end of the process, can be used for cleanup.
         """
-        raise NotImplementedError
+        pass
 
     def skip(self, *args):
         """
