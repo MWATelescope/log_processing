@@ -34,7 +34,7 @@ Rather than writing code to read each file line by line and doing string splitti
 ```python
 rules = {
     'web1_*': {
-        '[(.*)] INFO, (.*) /login.*': 'my_handler',
+        '[(.*)] INFO, (.*) .*/login.*': 'my_handler',
         '.*': 'skip'
     }
 }

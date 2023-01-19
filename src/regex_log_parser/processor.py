@@ -4,7 +4,7 @@ import logging
 import signal
 import re
 
-from .handler import HandlerBase
+from .handlers import HandlerBase
 
 logger = logging.getLogger()
 
