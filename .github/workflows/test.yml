@@ -29,7 +29,7 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: |
-          pip install .[dev, postgres]
+          pip install .[dev,postgres]
       - name: Run tests
         run: |
           coverage run -m pytest --postgresql-password=postgres --postgresql-host=postgres
