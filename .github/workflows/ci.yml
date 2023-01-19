@@ -41,7 +41,7 @@ jobs:
           python -m build
           twine check dist/*
       - name: pypi-publish
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+        #if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         uses: pypa/gh-action-pypi-publish@v1.6.4
         with:
           password: ${{ secrets.PYPI_TEST }}

@@ -1,4 +1,4 @@
-[![codecov](https://codecov.io/gh/MWATelescope/log_processing/branch/main/graph/badge.svg?token=TNJ489MDDR)](https://codecov.io/gh/MWATelescope/log_processing)
+[![codecov](https://codecov.io/gh/MWATelescope/log_processing/branch/main/graph/badge.svg?token=TNJ489MDDR)](https://codecov.io/gh/MWATelescope/log_processing) [![PyPI version](https://badge.fury.io/py/regex-log-parser.svg)](https://badge.fury.io/py/regex-log-parser)
 
 # Regex Log Parser
 Regex Log Parser is a simple and easy to use Python library for log parsing/processing. It allows the user to define a dictionary of regex rules and handler functions which determine how logs should be processed. See the examples below for more information.
