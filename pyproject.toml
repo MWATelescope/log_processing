@@ -19,7 +19,7 @@ dependencies = []
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-dev = ["pip-tools", "pytest", 'pytest-postgresql']
+dev = ["pip-tools", "pytest", "pytest-postgresql", "coverage"]
 postgres = ['psycopg >= 3.0']
 
 [project.urls]
